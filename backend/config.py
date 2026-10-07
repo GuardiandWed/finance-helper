@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     MONGO_DB_NAME: str = "finance_helper"
     PORT: int = 8000
     HOST: str = "0.0.0.0"
-    WEBAPP_URL: str = "http://localhost:8000"
+    WEBAPP_URL: str = "https://finance-helper-pt0m.onrender.com"
 
     class Config:
         env_file = ".env"
