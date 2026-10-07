@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Семейный Бюджет</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#0B0F17',
+            cardDark: '#131A26',
+            borderDark: '#1E293B',
+            accentSky: '#38BDF8',
+            accentEmerald: '#10B981',
+            accentRose: '#F43F5E',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-bgDark text-slate-100 font-sans antialiased min-h-screen select-none pb-28 overflow-x-hidden w-full max-w-full">
+
+  <!-- Top Sticky Bar -->
+  <header class="w-full px-4 pt-4 pb-3 flex justify-between items-center border-b border-borderDark/60 bg-bgDark/80 backdrop-blur-md sticky top-0 z-30 box-border">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500/20 to-emerald-500/20 border border-sky-500/30 flex items-center justify-center text-base shadow-inner">
+        💶
+      </div>
+      <div>
+        <h1 class="text-xs font-bold tracking-tight text-white flex items-center gap-1">
+          Семейный Бюджет
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        </h1>
+        <p class="text-[10px] font-medium text-slate-400" id="header-period-label">Октябрь 2026</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-800/80 text-sky-400 border border-slate-700/60 shadow-sm">
+        EUR (€)
+      </span>
+    </div>
+  </header>
+
+  <!-- APP CONTAINERS (4 SCREENS) -->
+  <main class="w-full max-w-[100vw] px-3.5 pt-3 box-border overflow-hidden">
+
+    <!-- SCREEN 1: ГЛАВНАЯ (HOME) -->
+    <div id="screen-home" class="space-y-4">
+      <!-- Main Wallet Balance Card -->
+      <div class="glass-card p-5 rounded-3xl border border-borderDark shadow-2xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-36 h-36 bg-sky-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -left-10 -top-10 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="flex justify-between items-center text-xs font-semibold text-slate-400 tracking-wide uppercase">
+          <span>Сбережения за месяц</span>
+          <span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px]" id="savings-rate">+0%</span>
+        </div>
+
+        <div class="text-3xl sm:text-4xl font-black tracking-tight mt-1.5 text-white" id="home-net-savings">
+          0.00 €
+        </div>
+
+        <!-- 2 Sub-metrics -->
+        <div class="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-slate-800/70">
+          <div class="bg-cardDark/60 p-3 rounded-2xl border border-borderDark/60">
+            <div class="text-[11px] font-medium text-rose-400 flex items-center gap-1">
+              <span>↓</span> Расходы
+            </div>
+            <div class="text-base font-bold text-slate-100 mt-0.5" id="home-total-expense">0.00 €</div>
+          </div>
+          <div class="bg-cardDark/60 p-3 rounded-2xl border border-borderDark/60">
+            <div class="text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+              <span>↑</span> Доходы
+            </div>
+            <div class="text-base font-bold text-slate-100 mt-0.5" id="home-total-income">0.00 €</div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-2.5 mt-4">
+          <button onclick="openTransactionModal('expense')" class="btn-press flex items-center justify-center space-x-2 py-3 rounded-2xl bg-gradient-to-r from-rose-500/20 to-rose-600/20 hover:from-rose-500/30 hover:to-rose-600/30 border border-rose-500/40 text-rose-300 font-bold text-sm shadow-md transition">
+            <span>💸</span>
+            <span>− Трата</span>
+          </button>
+          <button onclick="openTransactionModal('income')" class="btn-press flex items-center justify-center space-x-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500/30 hover:to-emerald-600/30 border border-emerald-500/40 text-emerald-300 font-bold text-sm shadow-md transition">
+            <span>💰</span>
+            <span>+ Доход</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Insight -->
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="bg-cardDark/70 p-3.5 rounded-2xl border border-borderDark flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-base">📊</div>
+          <div>
+            <div class="text-[10px] text-slate-400 font-medium">В день в среднем</div>
+            <div class="text-xs font-bold text-slate-200 mt-0.5" id="home-daily-avg">0.00 €</div>
+          </div>
+        </div>
+        <div class="bg-cardDark/70 p-3.5 rounded-2xl border border-borderDark flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-base">🎯</div>
+          <div>
+            <div class="text-[10px] text-slate-400 font-medium">Всего операций</div>
+            <div class="text-xs font-bold text-slate-200 mt-0.5" id="home-tx-count">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Operations -->
+      <div class="space-y-2.5 pt-1">
+        <div class="flex justify-between items-center px-1">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Последние события</h2>
+          <button onclick="navigateToTab('expenses')" class="text-xs font-semibold text-sky-400 hover:underline">Все расходы →</button>
+        </div>
+        <div id="home-tx-list" class="space-y-2">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: РАСХОДЫ (EXPENSES) -->
+    <div id="screen-expenses" class="hidden space-y-4">
+      <div class="bg-gradient-to-r from-rose-950/40 via-cardDark to-cardDark p-4 rounded-3xl border border-rose-500/30 flex justify-between items-center shadow-lg">
+        <div>
+          <span class="text-xs font-medium text-rose-400">Сумма всех расходов</span>
+          <div class="text-2xl font-black text-white mt-0.5" id="expenses-screen-total">0.00 €</div>
+        </div>
+        <button onclick="openTransactionModal('expense')" class="btn-press px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-rose-600/30">
+          <span>+</span>
+          <span>Внести чек</span>
+        </button>
+      </div>
+
+      <!-- Quick category filter chips -->
+      <div class="space-y-1.5">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase px-1">Фильтр по категории</div>
+        <div id="expense-filter-chips" class="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar">
+          <!-- All + categories chips -->
+        </div>
+      </div>
+
+      <!-- Expenses list -->
+      <div class="space-y-2.5">
+        <div class="flex justify-between items-center px-1">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">История трат</h2>
+          <span class="text-xs text-slate-500" id="expenses-list-count">0 трат</span>
+        </div>
+        <div id="expenses-full-list" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: ДОХОДЫ (INCOMES) -->
+    <div id="screen-incomes" class="hidden space-y-4">
+      <div class="bg-gradient-to-r from-emerald-950/40 via-cardDark to-cardDark p-4 rounded-3xl border border-emerald-500/30 flex justify-between items-center shadow-lg">
+        <div>
+          <span class="text-xs font-medium text-emerald-400">Все поступления</span>
+          <div class="text-2xl font-black text-white mt-0.5" id="incomes-screen-total">0.00 €</div>
+        </div>
+        <button onclick="openTransactionModal('income')" class="btn-press px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30">
+          <span>+</span>
+          <span>Внести доход</span>
+        </button>
+      </div>
+
+      <!-- Incomes list -->
+      <div class="space-y-2.5">
+        <div class="flex justify-between items-center px-1">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">История поступлений</h2>
+          <span class="text-xs text-slate-500" id="incomes-list-count">0 поступлений</span>
+        </div>
+        <div id="incomes-full-list" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: АНАЛИТИКА (ANALYTICS) -->
+    <div id="screen-analytics" class="hidden space-y-4">
+      <!-- Chart Card -->
+      <div class="glass-card p-5 rounded-3xl border border-borderDark shadow-xl space-y-3">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Куда уходят деньги</h2>
+          <span class="text-xs font-semibold text-sky-400" id="analytics-month-name">Октябрь</span>
+        </div>
+        <div class="relative h-64 w-full flex items-center justify-center">
+          <canvas id="expenseChart"></canvas>
+          <div id="no-chart-data" class="hidden text-slate-500 text-xs text-center">
+            Пока нет данных о тратах за этот месяц
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Expense Categories with Progress Bars -->
+      <div class="space-y-2.5">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Детализация по категориям</h2>
+        <div id="analytics-categories-breakdown" class="space-y-2"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FIXED BOTTOM NAVIGATION BAR (4 TABS) -->
+  <nav class="glass-nav border-t border-borderDark/80">
+    <div class="nav-inner">
+      
+      <!-- Tab 1: Home -->
+      <button id="nav-btn-home" onclick="navigateToTab('home')" class="nav-tab-btn tab-active">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        <span>Главная</span>
+      </button>
+
+      <!-- Tab 2: Expenses -->
+      <button id="nav-btn-expenses" onclick="navigateToTab('expenses')" class="nav-tab-btn">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <span>Расходы</span>
+      </button>
+
+      <!-- Tab 3: Incomes -->
+      <button id="nav-btn-incomes" onclick="navigateToTab('incomes')" class="nav-tab-btn">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>Доходы</span>
+      </button>
+
+      <!-- Tab 4: Analytics -->
+      <button id="nav-btn-analytics" onclick="navigateToTab('analytics')" class="nav-tab-btn">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+        </svg>
+        <span>Аналитика</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- MODAL BOTTOM SHEET (ADD EXPENSE / INCOME) -->
+  <div id="modal-tx" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-end sm:items-center justify-center">
+    <div class="bg-cardDark border-t sm:border border-borderDark w-full max-w-md rounded-t-[32px] sm:rounded-3xl p-6 space-y-5 sheet-animate max-h-[92vh] overflow-y-auto">
+      
+      <!-- Header -->
+      <div class="flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <span id="modal-type-badge" class="text-lg">💸</span>
+          <h3 id="modal-title" class="text-lg font-extrabold text-white">Внести расход</h3>
+        </div>
+        <button onclick="closeTransactionModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:text-white transition">✕</button>
+      </div>
+
+      <!-- Amount Input -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Сумма в евро</label>
+        <div class="relative flex items-center">
+          <input type="number" step="0.01" id="tx-amount" placeholder="0.00" class="w-full bg-bgDark border border-borderDark rounded-2xl py-3.5 px-4 text-3xl font-black text-white focus:outline-none focus:border-sky-500 text-center tracking-wide shadow-inner">
+          <span class="absolute right-5 text-2xl font-black text-slate-500 pointer-events-none">€</span>
+        </div>
+      </div>
+
+      <!-- Categories Selection -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Категория</label>
+          <button onclick="toggleNewCategoryInput()" class="text-xs font-bold text-sky-400 hover:text-sky-300 transition">+ Своя категория</button>
+        </div>
+
+        <!-- Add Category Inline Drawer -->
+        <div id="new-cat-container" class="hidden p-3 bg-bgDark border border-sky-500/40 rounded-2xl space-y-2 shadow-inner">
+          <div class="flex gap-2">
+            <input type="text" id="new-cat-emoji" placeholder="🛒" class="w-12 bg-cardDark border border-borderDark rounded-xl px-2 text-center text-xl">
+            <input type="text" id="new-cat-name" placeholder="Название (напр. Вода / Такси)" class="flex-1 bg-cardDark border border-borderDark rounded-xl px-3 text-sm text-white focus:outline-none focus:border-sky-500">
+          </div>
+          <button onclick="saveNewCategory()" class="w-full py-2 bg-sky-600 hover:bg-sky-500 rounded-xl text-xs font-bold text-white transition">Добавить категорию</button>
+        </div>
+
+        <div id="categories-grid" class="grid grid-cols-4 gap-2">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <!-- Note / Place -->
+      <div class="space-y-1.5">
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Заметка / Место (опционально)</label>
+        <input type="text" id="tx-comment" placeholder="Например: Lidl, обед, билеты в кино" class="w-full bg-bgDark border border-borderDark rounded-xl py-3 px-3.5 text-sm text-slate-200 focus:outline-none focus:border-sky-500 shadow-inner">
+      </div>
+
+      <!-- Save Button -->
+      <button id="save-tx-btn" onclick="saveTransaction()" class="btn-press w-full py-4 rounded-2xl bg-rose-600 hover:bg-rose-500 font-extrabold text-white text-base shadow-xl shadow-rose-600/30 transition">
+        Сохранить запись
+      </button>
+
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: family-finance-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: finance_helper
+      - key: WEBAPP_URL
+        sync: false
