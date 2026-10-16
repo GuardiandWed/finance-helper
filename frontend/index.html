@@ -30,12 +30,12 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body class="bg-bgDark text-slate-100 font-sans antialiased min-h-screen select-none pb-28 overflow-x-hidden w-full max-w-full">
 
   <!-- PIN LOCK SCREEN OVERLAY -->
-  <div id="pin-lock-screen" class="fixed inset-0 z-50 bg-bgDark flex flex-col items-center justify-between p-6 transition-all duration-300">
+  <div id="pin-lock-screen" class="fixed inset-0 z-[60] bg-bgDark flex flex-col items-center justify-between gap-4 p-6 overflow-y-auto transition-opacity duration-300">
     <div class="w-full flex justify-center pt-8">
       <div class="w-14 h-14 rounded-3xl bg-gradient-to-tr from-sky-500/20 to-emerald-500/20 border border-sky-500/40 flex items-center justify-center text-3xl shadow-lg">
         🔒
@@ -120,7 +120,7 @@
   </header>
 
   <!-- APP CONTAINERS (5 SCREENS) -->
-  <main class="w-full max-w-[100vw] px-3.5 pt-3 box-border overflow-hidden">
+  <main class="w-full max-w-md mx-auto px-3.5 pt-3 box-border">
 
     <!-- SCREEN 1: ГЛАВНАЯ (HOME) -->
     <div id="screen-home" class="space-y-4">
@@ -510,7 +510,7 @@
         </div>
         <div class="flex justify-between text-xs">
           <span class="text-slate-400">Защитный PIN:</span>
-          <span class="text-slate-200 font-mono font-bold">220626</span>
+          <span class="text-slate-200 font-mono font-bold">••••••</span>
         </div>
       </div>
 
@@ -530,6 +530,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 import calendar
+import secrets
 from fastapi import APIRouter, HTTPException, Query, Header, Depends
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -13,23 +14,26 @@ from backend.schemas import (
     PlannedPurchaseCreate, PlannedPurchaseResponse, ConvertPlanToExpenseRequest
 )
 
-router = APIRouter(prefix="/api")
 
-# Защита API по токену/ПИНу
+# Защита API по PIN-коду: токен передаётся в заголовке X-Pin-Token
 def verify_access(x_pin_token: Optional[str] = Header(None)):
-    if x_pin_token != settings.ACCESS_PIN:
-        # Для обратной совместимости локальных тестов
-        pass
-    return True
+    expected = settings.ACCESS_PIN.encode()
+    given = (x_pin_token or "").encode()
+    if not secrets.compare_digest(given, expected):
+        raise HTTPException(status_code=401, detail="PIN required")
 
-@router.get("/health")
+# Публичные эндпоинты (без PIN): проверка PIN и health для Keep-Alive
+router = APIRouter(prefix="/api", dependencies=[Depends(verify_access)])
+public_router = APIRouter(prefix="/api")
+
+@public_router.get("/health")
 async def health_check():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 # ----------------- AUTH -----------------
-@router.post("/auth/verify", response_model=AuthResponse)
+@public_router.post("/auth/verify", response_model=AuthResponse)
 async def verify_pin(req: AuthRequest):
-    if req.pin.strip() == settings.ACCESS_PIN:
+    if secrets.compare_digest(req.pin.strip().encode(), settings.ACCESS_PIN.encode()):
         return AuthResponse(success=True, token=settings.ACCESS_PIN, message="Доступ разрешен")
     return AuthResponse(success=False, message="Неверный PIN-код")
 

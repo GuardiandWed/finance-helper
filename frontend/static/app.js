@@ -1,4 +1,14 @@
 // Telegram WebApp Initialization
+// Все запросы к /api получают PIN-токен; при 401 экран блокируется
+const _origFetch = window.fetch.bind(window);
+window.fetch = async (url, opts = {}) => {
+  const isApi = typeof url === 'string' && url.startsWith('/api/') && !url.startsWith('/api/auth/') && !url.startsWith('/api/health');
+  if (isApi) opts.headers = { ...(opts.headers || {}), 'X-Pin-Token': localStorage.getItem('finance_pin_token') || '' };
+  const res = await _origFetch(url, opts);
+  if (isApi && res.status === 401) lockScreenNow();
+  return res;
+};
+
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
@@ -23,7 +33,6 @@ let currentMonth = new Date().getMonth() + 1; // 1-12
 let currentHalf = 0; // 0 = all month, 1 = 1-15, 2 = 16-end
 
 let enteredPin = '';
-const CORRECT_PIN = '220626';
 
 let activeModalType = 'expense';
 let categories = [];
@@ -49,12 +58,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ----------------- PIN LOCK SCREEN -----------------
 function initPinLock() {
-  const savedToken = localStorage.getItem('finance_pin_auth');
-  if (savedToken === CORRECT_PIN) {
-    unlockApp();
-  } else {
-    lockScreenNow();
-  }
+  if (localStorage.getItem('finance_pin_token')) unlockApp(true);
+  else lockScreenNow();
+  // Ввод с физической клавиатуры (Telegram Desktop / Web)
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('pin-lock-screen').classList.contains('hidden')) return;
+    if (/^[0-9]$/.test(e.key)) pressPinKey(e.key);
+    else if (e.key === 'Backspace') backspacePinKey();
+    else if (e.key === 'Escape') clearPinKey();
+  });
 }
 
 function updatePinDots() {
@@ -93,24 +105,39 @@ function backspacePinKey() {
   document.getElementById('pin-error').classList.add('hidden');
 }
 
-function checkPin() {
-  if (enteredPin === CORRECT_PIN) {
-    triggerHaptic('success');
-    localStorage.setItem('finance_pin_auth', CORRECT_PIN);
-    unlockApp();
-  } else {
-    triggerHaptic('warning');
-    const errEl = document.getElementById('pin-error');
-    errEl.classList.remove('hidden');
-    enteredPin = '';
-    updatePinDots();
-  }
+let pinChecking = false;
+async function checkPin() {
+  if (pinChecking) return;
+  pinChecking = true;
+  const pin = enteredPin;
+  try {
+    const res = await _origFetch('/api/auth/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      triggerHaptic('success');
+      localStorage.setItem('finance_pin_token', data.token);
+      unlockApp();
+      return;
+    }
+  } catch (e) { console.error(e); }
+  finally { pinChecking = false; }
+  triggerHaptic('warning');
+  document.getElementById('pin-error').classList.remove('hidden');
+  enteredPin = '';
+  updatePinDots();
 }
 
-function unlockApp() {
+function unlockApp(instant = false) {
+  enteredPin = '';
+  updatePinDots();
   const lock = document.getElementById('pin-lock-screen');
-  lock.classList.add('opacity-0', 'pointer-events-none');
-  setTimeout(() => lock.classList.add('hidden'), 300);
+  if (instant) lock.classList.add('hidden');
+  else {
+    lock.classList.add('opacity-0', 'pointer-events-none');
+    setTimeout(() => lock.classList.add('hidden'), 300);
+  }
   refreshAllData();
 }
 
@@ -120,7 +147,7 @@ function lockScreenNow() {
   updatePinDots();
   const lock = document.getElementById('pin-lock-screen');
   lock.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
-  localStorage.removeItem('finance_pin_auth');
+  localStorage.removeItem('finance_pin_token');
   closeAdminModal();
 }
 
@@ -343,12 +370,12 @@ function renderExpensesScreen() {
   chipsContainer.innerHTML = uniqueCats.map(cat => {
     const isSelected = selectedExpenseFilter === cat;
     return `
-      <button onclick="setExpenseFilter('${cat}')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border ${
+      <button data-cat="${escapeHtml(cat)}" onclick="setExpenseFilter(this.dataset.cat)" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border ${
         isSelected 
           ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 shadow-sm' 
           : 'bg-cardDark text-slate-400 border-borderDark hover:text-white'
       }">
-        ${cat === 'ALL' ? '⚡ Все' : cat}
+        ${cat === 'ALL' ? '⚡ Все' : escapeHtml(cat)}
       </button>
     `;
   }).join('');
@@ -404,7 +431,7 @@ function renderTxCard(tx) {
           ${tx.category_icon || '💰'}
         </div>
         <div class="min-w-0">
-          <div class="text-sm font-bold text-white truncate">${tx.category_name}</div>
+          <div class="text-sm font-bold text-white truncate">${escapeHtml(tx.category_name)}</div>
           <div class="text-[11px] text-slate-400 flex items-center space-x-1 truncate mt-0.5">
             <span>${dateStr}</span>
             ${tx.comment ? `<span class="text-slate-500">•</span> <span class="truncate text-slate-300 font-medium">${escapeHtml(tx.comment)}</span>` : ''}
@@ -501,7 +528,7 @@ function renderPlansScreen() {
 
         ${!p.is_completed ? `
           <div class="flex space-x-2 pt-1 border-t border-borderDark/60">
-            <button onclick="convertPlanToExpense('${p.id}', ${p.estimated_amount}, '${escapeHtml(p.title)}')" class="btn-press flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-1 shadow-md shadow-emerald-600/20">
+            <button onclick="convertPlanToExpense('${p.id}')" class="btn-press flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-1 shadow-md shadow-emerald-600/20">
               <span>✅</span>
               <span>Куплено! Списать</span>
             </button>
@@ -519,7 +546,10 @@ function renderPlansScreen() {
   }).join('');
 }
 
-async function convertPlanToExpense(id, estimatedAmount, title) {
+async function convertPlanToExpense(id) {
+  const plan = allPlannedPurchases.find(p => p.id === id);
+  if (!plan) return;
+  const estimatedAmount = plan.estimated_amount, title = plan.title;
   triggerHaptic('medium');
   const input = prompt(`Подтвердите фактическую сумму покупки в евро (€):`, estimatedAmount);
   if (input === null) return;
@@ -962,8 +992,6 @@ async function adminExportData() {
   }
 }
 
-function escapeHtml(string) {
-  const el = document.createElement('div');
-  el.innerText = string;
-  return el.innerHTML;
+function escapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }

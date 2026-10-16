@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     WEBAPP_URL: str = "https://finance-helper-pt0m.onrender.com"
     ACCESS_PIN: str = "220626"
     KEEP_ALIVE_ENABLED: bool = True
+    BOT_ENABLED: bool = True
     KEEP_ALIVE_INTERVAL_MINUTES: int = 10
 
     class Config:

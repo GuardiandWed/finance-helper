@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
 from backend.database import init_db
-from backend.routes import router as api_router
+from backend.routes import router as api_router, public_router
 from backend.bot import start_bot, bot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -55,7 +55,8 @@ async def lifespan(app: FastAPI):
     # Запуск бота в фоне
     global bot_task, keep_alive_task
     logger.info("Запуск Telegram бота в фоне...")
-    bot_task = asyncio.create_task(start_bot())
+    if settings.BOT_ENABLED:
+        bot_task = asyncio.create_task(start_bot())
 
     # Запуск Keep-Alive пингера
     logger.info("Запуск задачи поддержания активности сервера (Anti-Sleep)...")
@@ -91,7 +92,16 @@ app.add_middleware(
 )
 
 # API
+app.include_router(public_router)
 app.include_router(api_router)
+
+@app.middleware("http")
+async def no_cache(request, call_next):
+    resp = await call_next(request)
+    p = request.url.path
+    if p == "/" or p.startswith("/static") or p.startswith("/api"):
+        resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
 
 # Статика фронтенда
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
