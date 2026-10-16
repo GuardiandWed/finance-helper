@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import aiohttp
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -14,6 +15,32 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 bot_task = None
+keep_alive_task = None
+
+async def keep_alive_worker():
+    """Фоновый пингер своего же URL, предотвращающий засыпание Render Free Tier"""
+    if not settings.KEEP_ALIVE_ENABLED:
+        return
+    
+    # Ждем 30 секунд после старта сервера
+    await asyncio.sleep(30)
+    logger.info(f"Запущен Keep-Alive Pinger для: {settings.WEBAPP_URL}")
+    
+    health_url = f"{settings.WEBAPP_URL.rstrip('/')}/api/health"
+    interval_seconds = settings.KEEP_ALIVE_INTERVAL_MINUTES * 60
+
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(health_url, timeout=15) as resp:
+                    if resp.status == 200:
+                        logger.info("Keep-Alive ping успешен: сервер бодрствует ✅")
+                    else:
+                        logger.warning(f"Keep-Alive ping статус: {resp.status}")
+        except Exception as e:
+            logger.warning(f"Keep-Alive ping ошибка (возможно, локальный запуск): {e}")
+
+        await asyncio.sleep(interval_seconds)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,12 +51,15 @@ async def lifespan(app: FastAPI):
         logger.info("MongoDB успешно подключена.")
     except Exception as e:
         logger.error(f"Ошибка подключения к MongoDB: {e}")
-        logger.warning("Приложение запустится, но базу нужно настроить в .env")
 
-    # Запуск фонового поллинга Telegram бота
-    global bot_task
+    # Запуск бота в фоне
+    global bot_task, keep_alive_task
     logger.info("Запуск Telegram бота в фоне...")
     bot_task = asyncio.create_task(start_bot())
+
+    # Запуск Keep-Alive пингера
+    logger.info("Запуск задачи поддержания активности сервера (Anti-Sleep)...")
+    keep_alive_task = asyncio.create_task(keep_alive_worker())
 
     yield
 
@@ -40,12 +70,18 @@ async def lifespan(app: FastAPI):
             await bot_task
         except asyncio.CancelledError:
             pass
+    if keep_alive_task:
+        keep_alive_task.cancel()
+        try:
+            await keep_alive_task
+        except asyncio.CancelledError:
+            pass
     await bot.session.close()
     logger.info("Сервис остановлен.")
 
 app = FastAPI(title="Family Finance Helper", lifespan=lifespan)
 
-# CORS для вызова с любых доменов Mini App
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -54,10 +90,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключение API роутов
+# API
 app.include_router(api_router)
 
-# Раздача фронтенда
+# Статика фронтенда
 app.mount("/static", StaticFiles(directory="frontend/static"), name="static")
 
 @app.get("/")

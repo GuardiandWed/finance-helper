@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "0.0.0.0"
     WEBAPP_URL: str = "https://finance-helper-pt0m.onrender.com"
+    ACCESS_PIN: str = "220626"
+    KEEP_ALIVE_ENABLED: bool = True
+    KEEP_ALIVE_INTERVAL_MINUTES: int = 10
 
     class Config:
         env_file = ".env"

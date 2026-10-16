@@ -35,6 +35,7 @@ async def init_db():
     # Индексы для быстрой фильтрации по дате
     await db.transactions.create_index([("date", -1)])
     await db.transactions.create_index([("type", 1)])
+    await db.planned_purchases.create_index([("is_completed", 1), ("created_at", -1)])
     return db
 
 def get_db():
